@@ -1,7 +1,7 @@
-import { WechatyBuilder } from 'wechaty'
 import { ChatGPTAPI } from 'chatgpt'
 import pTimeout from 'p-timeout'
 import qrcodeTerminal from 'qrcode-terminal'
+import Bot from './bilibili-bot'
 
 const config = {
   AutoReply: true,
@@ -29,45 +29,20 @@ async function getChatGPTReply(content) {
   return response
 }
 
-async function replyMessage(contact, content) {
+async function replyMessage(content) {
   try {
-    const reply = await getChatGPTReply(content);
-    await contact.say(reply);
+    return await getChatGPTReply(content);
   } catch (e) {
     console.error(e);
   }
 }
 
 async function onMessage(msg) {
-  const contact = msg.talker(); 
-  const receiver = msg.to(); 
-  const content = msg.text();
-  const room = msg.room(); 
-  const alias = await contact.alias() || await contact.name();
-  const isText = msg.type() === bot.Message.Type.Text;
-  if (msg.self()) {
-    return;
-  }
-
-  if (room && isText) {
-    const topic = await room.topic();
-    console.log(`Group name: ${topic} talker: ${await contact.name()} content: ${content}`);
-    if (await msg.mentionSelf()) {
-      const [groupContent] = content.split(`@${receiver.name()}`).filter(item => item.trim())
-      replyMessage(room, groupContent.trim())
-    }
-  } else if (isText) {
-    console.log(`talker: ${alias} content: ${content}`);
-    if (config.AutoReply) {
-      if (content) {
-        replyMessage(contact, content)
-      }
-    }
-  }
+  return replyMessage(msg)
 }
 
 
-function onScan(qrcode, status) {
+function onScan(qrcode) {
   qrcodeTerminal.generate(qrcode); // 在console端显示二维码
   const qrcodeImageUrl = [
     'https://api.qrserver.com/v1/create-qr-code/?data=',
@@ -89,31 +64,25 @@ async function onLogin(user) {
 function onLogout(user) {
   console.log(`${user} has logged out`);
 }
-async function onFriendShip(friendship) {
-  const frienddShipRe = /chatgpt|chat/
-  if (friendship.type() === 2) {
-    if (frienddShipRe.test(friendship.hello())) {
-      await friendship.accept()
-    }
-  }
-}
+// async function onFriendShip(friendship) {
+//   const frienddShipRe = /chatgpt|chat/
+//   if (friendship.type() === 2) {
+//     if (frienddShipRe.test(friendship.hello())) {
+//       await friendship.accept()
+//     }
+//   }
+// }
 
 
 
-const bot = WechatyBuilder.build({
-  name: 'WechatEveryDay',
-  puppet: 'wechaty-puppet-wechat', // 如果有token，记得更换对应的puppet
-  puppetOptions: {
-    uos: true
-  }
-})
+const bot = new Bot();
 
 bot.on('scan', onScan);
 bot.on('login', onLogin);
 bot.on('logout', onLogout);
 bot.on('message', onMessage)
 if (config.MakeFriend) {
-  bot.on('friendship', onFriendShip);
+  // bot.on('friendship', onFriendShip);
 }
 
 
