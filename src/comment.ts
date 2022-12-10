@@ -1,14 +1,16 @@
+import {Page} from "puppeteer";
+
 export default class Comment {
-  public async readAndReplyComment(page, videoUrl: String) {
+  public async readAndReplyComment(page: Page, videoUrl: string) {
     // 访问视频页面
     await page.goto(videoUrl);
 
     // 等待出现评论区
-    await page.waitForSelector("comment", { timeout: 99999999 });
+    await page.waitForSelector(".reply-content", { timeout: 99999999 });
 
     const comments = await page.evaluate(() => {
       // @ts-ignore
-      const element = document.querySelector("comment");
+      const element = document.querySelector(".reply-content");
 
       return element;
     });
