@@ -7,6 +7,18 @@ const videoUrl =
 export default class Bot {
   private page;
   private browser;
+  scan?: ((message: string) => void);
+  login: ((message: string) => void) | undefined;
+  logout?: ((message: string) => void);
+  message?: ((message: string) => Promise<string>);
+  friendship?: ((message: string) => void);
+  on(
+      event: "scan" | "login" | "logout" | "message" | "friendship",
+      callback: (message: string) => void
+  ) {
+    // @ts-ignore
+    this[event] = callback;
+  }
   private async init() {
     // 启动浏览器
     const browser = await puppeteer.launch({
@@ -32,62 +44,62 @@ export default class Bot {
       await this.handleScan()
     }
 
-    // 跳转到视频详情页面
-    await page.goto(videoUrl);
-
     // 遍历评论并回复
     this.eachComments();
-
-    // TODO: 自动获取到新的评论传给message回调，获得回复，并且自动回复
-    // const reply = this.message?.(nickname)
 
     // this.friendship?.(nickname)
 
     // TODO: 退出登录事件
     //this.logout?.(nickname)
   }
-  async eachComments() {
+  eachComments = async () => {
     const page = this.page;
+    // 跳转到视频详情页面
+    await page.goto(videoUrl);
     await page.waitForSelector(".reply-item", { timeout: 99999999 });
     // 获取到待回复的评论
     const replyItems = await page.evaluate(() => {
       return Array.from(document.querySelectorAll('.reply-item'))
-        .map(el => {
+        .map((el, index) => {
           const rootItem: any = el.querySelectorAll('.reply-content')[0];
           const rootComment = rootItem.innerText;
-          const rootReplayBtn = rootItem.querySelector('.reply-btn');
+          // 给按钮设置一个id，方便后面需要回复时查找
+          const rootReplayBtnId = 'btn' + index;
+          const rootReplayBtn: any = el.querySelector('.root-reply-container .reply-btn');
+          rootReplayBtn.id = rootReplayBtnId;
           const allComments = Array.from(el.querySelectorAll('.reply-content'))
             .map(el => el.textContent)
+          // 是否有折叠评论
+          const hasMore = el.querySelector('.view-more-default')
           // 回复里包含来自自动回复的表示已经回复过了
-          const isReplied = allComments.some((comment) => comment?.includes('来自自动回复：'));
+          const isReplied = allComments.some((comment) => comment?.includes('来自自动回复：')) || hasMore;
           return {
             rootComment,
             isReplied,
-            rootReplayBtn,
+            rootReplayBtnId,
           }
         });
 
     });
+    console.log(`有${replyItems.filter(({isReplied}) => !isReplied).length}条待回复评论`)
     // 遍历评论并回复
-    for (const {rootComment, isReplied, rootReplayBtn} of replyItems) {
+    for (const {rootComment, isReplied, rootReplayBtnId} of replyItems) {
       if (!isReplied) {
+        // 点击回复按钮
+        (await page.$(`#${rootReplayBtnId}`)).click();
         // 没有回复过的话就获取自动回复
-        const result = await this.message?.(rootComment);
-        console.log('result', result)
+        const result = `来自自动回复：${await this.message?.(rootComment)}`;
+        // 输入回复
+        (await page.$('.reply-item .reply-box-textarea')).type(result);
+        // 等待输入完成
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        // 点击发送
+        (await page.$('.reply-item .send-text')).click();
       }
     }
-  }
-  scan: ((message: string) => void) | undefined;
-  login: ((message: string) => void) | undefined;
-  logout: ((message: string) => void) | undefined;
-  message: ((message: string) => Promise<string>) | undefined;
-  friendship: ((message: string) => void) | undefined;
-  on(
-    event: "scan" | "login" | "logout" | "message" | "friendship",
-    callback: (message: string) => void
-  ) {
-    // @ts-ignore
-    this[event] = callback;
+    console.log('回复完成，等待5秒后刷新')
+    // 回复完成后等待5秒刷新页面再回复
+    setTimeout(this.eachComments, 5000);
   }
   async start() {
     await this.init();
@@ -116,5 +128,7 @@ export default class Bot {
     // 登录二维码链接返回给scan回调
     // @ts-ignore
     this.scan?.(qr);
+    // 等待扫码成功
+    await page.waitForSelector('.header-avatar-wrap--container', { timeout: 99999999 })
   }
 }

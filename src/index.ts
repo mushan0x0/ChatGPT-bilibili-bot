@@ -15,10 +15,9 @@ async function getChatGPTReply(content) {
   const api = new ChatGPTAPI({ sessionToken: config.ChatGPTSessionToken })
   // ensure the API is properly authenticated (optional)
   await api.ensureAuth()
-  console.log('content: ', content);
   // send a message and wait for the response
   //TODO: format response to compatible with wechat messages
-  const threeMinutesMs = 3 * 60 * 1000
+  const threeMinutesMs = 10 * 60 * 1000
   const response = await pTimeout(
     api.sendMessage(content),
     {
@@ -31,16 +30,19 @@ async function getChatGPTReply(content) {
   return response
 }
 
-async function replyMessage(content) {
-  try {
-    return await getChatGPTReply(content);
-  } catch (e) {
-    console.error(e);
-  }
-}
 
 async function onMessage(msg) {
-  return replyMessage(msg)
+  console.log('content: ', msg);
+  let result;
+  try {
+    result = await getChatGPTReply(msg)
+  } catch (e: any) {
+    console.log(e.message);
+    console.log('获取超时，重试中...')
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    return onMessage(msg);
+  }
+  return result;
 }
 
 
@@ -51,7 +53,7 @@ function onScan(qrcode) {
     encodeURIComponent(qrcode),
   ].join('');
 
-  console.log(qrcodeImageUrl);
+  console.log('Please open bilibili and scan the code to log in.');
 }
 
 async function onLogin(user) {
