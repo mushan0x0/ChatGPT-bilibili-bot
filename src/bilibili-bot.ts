@@ -10,7 +10,7 @@ export default class Bot {
   private async init() {
     // 启动浏览器
     const browser = await puppeteer.launch({
-      headless: false,
+      headless: true,
       userDataDir: "./userData", // 设置用户数据目录，保存登录数据
     });
     this.browser = browser;

@@ -2,6 +2,8 @@ import { ChatGPTAPI } from 'chatgpt'
 import pTimeout from 'p-timeout'
 import qrcodeTerminal from 'qrcode-terminal'
 import Bot from './bilibili-bot'
+import fs from 'fs';
+import readline from 'readline'
 
 const config = {
   AutoReply: true,
@@ -85,10 +87,45 @@ if (config.MakeFriend) {
   // bot.on('friendship', onFriendShip);
 }
 
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
 
-bot
-  .start()
-  .then(() => console.log('Start to log in wechat...'))
-  .catch((e) => console.error(e));
+// 定义一个函数用于提示用户输入登录 token
+function promptForToken() {
+  return new Promise((resolve, reject) => {
+    rl.question('Please enter your ChatGPT session token: ', (token) => {
+      rl.close();
+      resolve(token);
+    });
+  });
+}
 
+// 定义一个函数用于尝试从文件中读取登录 token
+function readTokenFromFile() {
+  try {
+    return fs.readFileSync('token.txt', 'utf8');
+  } catch (err) {
+    return null;
+  }
+}
 
+// 定义一个函数用于尝试从文件中读取登录 token，如果读取失败就提示用户输入
+async function getToken() {
+  let token = readTokenFromFile();
+  if (!token) {
+    token = await promptForToken() as string;
+    fs.writeFileSync('token.txt', token);
+  }
+  return token as string;
+}
+
+// 现在您可以调用 getToken 函数来获取登录 token，然后使用它登录您的应用
+getToken().then((token) => {
+  config.ChatGPTSessionToken = token;
+  bot
+    .start()
+    .then(() => console.log('Start to log in bilibili...'))
+    .catch((e) => console.error(e));
+});
