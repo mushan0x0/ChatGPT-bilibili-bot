@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer';
+import comment from 'comment';
 
 export default class Bot {
     private async init() {
@@ -42,6 +43,8 @@ export default class Bot {
         // @ts-ignore
         this.login?.(nickname)
 
+        Comment comment = new Comment();
+        
         // TODO: 自动获取到新的评论传给message回调，获得回复，并且自动回复
         // const reply = this.message?.(nickname)
 
@@ -66,3 +69,5 @@ export default class Bot {
         await this.init();
     }
 }
+
+
