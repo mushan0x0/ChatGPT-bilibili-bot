@@ -66,7 +66,7 @@ function onLogout(user) {
 
 async function onGetVideoUrl(url) {
   let videoUrl = await getVideoUrl();
-  return videoUrl;
+  return videoUrl as string;
 }
 // async function onFriendShip(friendship) {
 //   const frienddShipRe = /chatgpt|chat/

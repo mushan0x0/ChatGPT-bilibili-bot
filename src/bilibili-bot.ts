@@ -8,7 +8,7 @@ export default class Bot {
   logout?: (message: string) => void;
   message?: (message: string) => Promise<string>;
   friendship?: (message: string) => void;
-  getVideoUrl?: (message: string) => void;
+  getVideoUrl?: (message: string) => string;
   on(
     event:
       | "scan"
@@ -51,17 +51,17 @@ export default class Bot {
     }
 
     // 遍历评论并回复
-    this.eachComments();
+    const videoUrl = (await this.getVideoUrl?.("xx")) as string;
+    this.eachComments(videoUrl);
 
     // this.friendship?.(nickname)
 
     // TODO: 退出登录事件
     //this.logout?.(nickname)
   }
-  eachComments = async () => {
+  eachComments = async (videoUrl: string) => {
     const page = this.page;
     // 跳转到视频详情页面
-    let videoUrl = this.getVideoUrl?.("xx");
     await page.goto(videoUrl);
     await page.waitForSelector(".reply-item", { timeout: 99999999 });
     // 获取到待回复的评论
@@ -114,7 +114,7 @@ export default class Bot {
     }
     console.log("回复完成，等待5秒后刷新");
     // 回复完成后等待5秒刷新页面再回复
-    setTimeout(this.eachComments, 5000);
+    setTimeout(this.eachComments, 5000, videoUrl);
   };
   async start() {
     await this.init();
