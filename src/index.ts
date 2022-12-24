@@ -117,13 +117,19 @@ function enterPassword() {
   });
 }
 
-// 定义一个函数用于尝试从文件(TODO：读取视频列表)中读取视频地址，如果读取失败就提示用户输入
+// 尝试从文件(TODO：读取视频列表)中读取视频地址，如果读取失败就提示用户输入
 async function getVideoUrl() {
-  let videoUrl = (await enterVideoUrl()) as string;
+  let filename = "video.txt";
+  let videoUrl = readFile(filename);
+  if (!videoUrl) {
+    videoUrl = (await enterVideoUrl()) as string;
+    fs.writeFileSync(filename, videoUrl);
+  }
+
   return videoUrl as string;
 }
 
-// 定义一个函数用于提示用户输入视频地址
+// 提示用户输入视频地址
 function enterVideoUrl() {
   return new Promise((resolve, reject) => {
     rl.question("Please enter your bilibili video url: ", (videoUrl) => {
@@ -133,13 +139,19 @@ function enterVideoUrl() {
   });
 }
 
+let cacheApi: any = null;
+
 async function initSession(email: string, password: string) {
+  if (cacheApi) {
+    return cacheApi;
+  }
   const api = new ChatGPTAPIBrowser({
     email: email,
     password: password,
   });
   await api.initSession();
-  return api;
+  cacheApi = api;
+  return cacheApi;
 }
 
 // 获取登录账号信息，初始化session, 启动应用
