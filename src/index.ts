@@ -1,4 +1,4 @@
-import { ChatGPTAPI } from "chatgpt";
+import { ChatGPTAPIBrowser } from "chatgpt";
 import pTimeout from "p-timeout";
 import qrcodeTerminal from "qrcode-terminal";
 import Bot from "./bilibili-bot";
@@ -6,25 +6,16 @@ import fs from "fs";
 import readline from "readline";
 
 const config = {
-  AutoReply: true,
-  MakeFriend: true,
-  ChatGPTSessionToken: "",
+  email: "",
+  password: "",
 };
 
 async function getChatGPTReply(content) {
-  const api = new ChatGPTAPI({ sessionToken: config.ChatGPTSessionToken });
-  // ensure the API is properly authenticated (optional)
-  await api.ensureAuth();
-  // send a message and wait for the response
-  //TODO: format response to compatible with wechat messages
-  const threeMinutesMs = 10 * 60 * 1000;
-  const response = await pTimeout(api.sendMessage(content), {
-    milliseconds: threeMinutesMs,
-    message: "ChatGPT timed out waiting for response",
-  });
-  console.log("response: ", response);
+  const api = await initSession(config.email, config.password);
+  let res = await api.sendMessage(content);
+  console.log("response: ", res);
   // response is a markdown-formatted string
-  return response;
+  return res;
 }
 
 async function onMessage(msg) {
@@ -55,9 +46,6 @@ async function onLogin(user) {
   console.log(`${user} has logged in`);
   const date = new Date();
   console.log(`Current time:${date}`);
-  if (config.AutoReply) {
-    console.log(`Automatic robot chat mode has been activated`);
-  }
 }
 
 function onLogout(user) {
@@ -84,27 +72,59 @@ bot.on("login", onLogin);
 bot.on("logout", onLogout);
 bot.on("message", onMessage);
 bot.on("getVideoUrl", onGetVideoUrl);
-if (config.MakeFriend) {
-  // bot.on('friendship', onFriendShip);
-}
 
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
-// 定义一个函数用于提示用户输入登录 token
-function promptForToken() {
-  return new Promise((resolve, reject) => {
-    rl.question("Please enter your ChatGPT session token: ", (token) => {
-      rl.close();
-      resolve(token);
+// 读取文件信息
+function readFile(filename: string) {
+  try {
+    return fs.readFileSync(filename, "utf8");
+  } catch (err) {
+    return null;
+  }
+}
+
+// 定义一个函数用于尝试从文件中读取登录 token，如果读取失败就提示用户输入
+async function getAccount() {
+  let filename = "account.txt";
+  // {"email":"123@abc.com","password":"123456"}
+  let account = readFile(filename);
+  if (!account) {
+    let email = (await enterEmail()) as string;
+    let password = (await enterPassword()) as string;
+    account = JSON.stringify({ email: email, password: password });
+    fs.writeFileSync(filename, account);
+  }
+  return account as string;
+}
+
+function enterEmail() {
+  return new Promise((resolve) => {
+    rl.question("Please enter your ChatGPT email: ", (email) => {
+      resolve(email);
     });
   });
 }
 
+function enterPassword() {
+  return new Promise((resolve) => {
+    rl.question("Please enter your ChatGPT password: ", (password) => {
+      resolve(password);
+    });
+  });
+}
+
+// 定义一个函数用于尝试从文件(TODO：读取视频列表)中读取视频地址，如果读取失败就提示用户输入
+async function getVideoUrl() {
+  let videoUrl = (await enterVideoUrl()) as string;
+  return videoUrl as string;
+}
+
 // 定义一个函数用于提示用户输入视频地址
-function promptForVideoUrl() {
+function enterVideoUrl() {
   return new Promise((resolve, reject) => {
     rl.question("Please enter your bilibili video url: ", (videoUrl) => {
       rl.close();
@@ -113,34 +133,20 @@ function promptForVideoUrl() {
   });
 }
 
-// 定义一个函数用于尝试从文件中读取登录 token
-function readTokenFromFile() {
-  try {
-    return fs.readFileSync("token.txt", "utf8");
-  } catch (err) {
-    return null;
-  }
+async function initSession(email: string, password: string) {
+  const api = new ChatGPTAPIBrowser({
+    email: email,
+    password: password,
+  });
+  await api.initSession();
+  return api;
 }
 
-// 定义一个函数用于尝试从文件中读取登录 token，如果读取失败就提示用户输入
-async function getToken() {
-  let token = readTokenFromFile();
-  if (!token) {
-    token = (await promptForToken()) as string;
-    fs.writeFileSync("token.txt", token);
-  }
-  return token as string;
-}
-
-// 定义一个函数用于尝试从文件(TODO：读取视频列表)中读取视频地址，如果读取失败就提示用户输入
-async function getVideoUrl() {
-  let videoUrl = (await promptForVideoUrl()) as string;
-  return videoUrl as string;
-}
-
-// 现在您可以调用 getToken 函数来获取登录 token，然后使用它登录您的应用
-getToken().then((token) => {
-  config.ChatGPTSessionToken = token;
+// 获取登录账号信息，初始化session, 启动应用
+getAccount().then((account) => {
+  let accountJson = JSON.parse(account);
+  config.email = accountJson.email;
+  config.password = accountJson.password;
   bot
     .start()
     .then(() => console.log("Start to log in bilibili..."))
