@@ -15,7 +15,7 @@ async function getChatGPTReply(content) {
   let res = await api.sendMessage(content);
   console.log("response: ", res);
   // response is a markdown-formatted string
-  return res;
+  return res.response as string;
 }
 
 async function onMessage(msg) {
@@ -149,6 +149,7 @@ async function initSession(email: string, password: string) {
     email: email,
     password: password,
   });
+
   await api.initSession();
   cacheApi = api;
   return cacheApi;
